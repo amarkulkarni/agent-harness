@@ -1,0 +1,45 @@
+{
+  "name": "agent-harness",
+  "version": "0.1.0",
+  "description": "A tiny, provider-agnostic harness for building tool-using agents. An agent is just a system prompt + typed tools; the loop, streaming, cost tracking, and guardrails come for free.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "agent-harness": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/loop.test.ts",
+    "example:fs": "node --import tsx examples/filesystem-agent.ts"
+  },
+  "keywords": [
+    "agent",
+    "llm",
+    "anthropic",
+    "claude",
+    "tool-use",
+    "harness"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.109.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
