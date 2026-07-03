@@ -47,6 +47,10 @@ set. This library extracts just the reusable core:
   gate risky tools. The loop stops cleanly and tells you why.
 - **Model-agnostic.** The loop never imports an SDK — it drives an
   `LLMProvider`. One Anthropic implementation ships; adding another is additive.
+- **MCP built in.** Point it at any [MCP](https://modelcontextprotocol.io) server
+  and its tools become agent tools automatically — no per-tool wiring.
+- **Parallel tools.** When the model requests several tools in one turn, they
+  run concurrently; results are fed back in the model's original order.
 
 ## Install
 
@@ -131,6 +135,30 @@ npm run example:fs -- --dir ./playground "create hello.txt with a greeting"
 It's proof the harness is reusable — the core has no idea what a "filesystem
 agent" is; it's just three tools and a prompt.
 
+## MCP: connectors as tools
+
+Connect to any [Model Context Protocol](https://modelcontextprotocol.io) server
+and hand its tools straight to an agent — every connector (GitHub, Slack, a
+database, a filesystem server…) becomes agent tools with zero per-tool code.
+
+```ts
+import { connectMcp, createAgent, runAgent } from 'agent-harness'
+
+// stdio: spawn a local server
+const mcp = await connectMcp({ type: 'stdio', command: 'my-mcp-server', args: [] })
+// or HTTP: a hosted server
+// const mcp = await connectMcp({ type: 'http', url: 'https://…/mcp', headers: { Authorization: `Bearer ${token}` } })
+
+const agent = createAgent({ system: 'You are a helpful assistant.', tools: mcp.tools })
+for await (const ev of runAgent(agent, { prompt: '…' })) { /* … */ }
+await mcp.close()
+```
+
+Wiring several servers? Pass a `prefix` per connection (e.g. `{ prefix: 'github__' }`)
+to avoid tool-name collisions. MCP tools carry their own JSON Schema, so they
+slot in alongside `defineTool` tools transparently. See
+[`examples/mcp-agent.ts`](examples/mcp-agent.ts) (`npm run example:mcp`).
+
 ## Cost tracking
 
 Per-model pricing lives in [`src/cost.ts`](src/cost.ts) (USD per 1M tokens).
@@ -163,12 +191,14 @@ turns and no network. See [`test/loop.test.ts`](test/loop.test.ts).
 |---|---|
 | `npm run build` | Compile `src/` → `dist/`. |
 | `npm run typecheck` | Type-check without emitting. |
-| `npm test` | Run the mock-provider unit tests (no network). |
+| `npm test` | Run the mock-provider + MCP unit tests (no network). |
 | `npm run example:fs` | Run the filesystem reference agent. |
+| `npm run example:mcp` | Run the MCP example (agent + spawned MCP server). |
 
-## Roadmap (not in v1)
+## Roadmap
 
-- **MCP client** — consume MCP servers so every connector becomes agent tools
-  automatically. The `Tool` interface is the intended seam.
-- Additional providers (OpenAI, local models).
-- Session/transcript persistence and resumable runs.
+- **npm publish** — so it installs by name into other projects.
+- **Prompt caching** — `cache_control` on system + tools for cheaper multi-turn runs.
+- **Structured output helper** — `runAgentForObject` returning a validated typed object.
+- **Session/transcript persistence** and resumable runs.
+- **Additional providers** (OpenAI, local models) behind the existing seam.

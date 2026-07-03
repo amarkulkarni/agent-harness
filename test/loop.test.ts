@@ -158,6 +158,56 @@ test('approval hook can deny a tool call', async () => {
   )
 })
 
+test('runs multiple tool calls in one turn concurrently, results in order', async () => {
+  const order: string[] = []
+  const slow = defineTool({
+    name: 'slow',
+    description: 'Resolves after a tick.',
+    input: z.object({}),
+    handler: async () => {
+      await new Promise((r) => setTimeout(r, 30))
+      order.push('slow')
+      return 'slow-done'
+    }
+  })
+  const fast = defineTool({
+    name: 'fast',
+    description: 'Resolves immediately.',
+    input: z.object({}),
+    handler: () => {
+      order.push('fast')
+      return 'fast-done'
+    }
+  })
+
+  const provider = new MockProvider([
+    {
+      text: '',
+      // slow is requested first, fast second
+      toolCalls: [
+        { id: 'a', name: 'slow', input: {} },
+        { id: 'b', name: 'fast', input: {} }
+      ],
+      stopReason: 'tool_use',
+      usage: { inputTokens: 10, outputTokens: 2 }
+    },
+    { text: 'ok', toolCalls: [], stopReason: 'end_turn', usage: { inputTokens: 5, outputTokens: 1 } }
+  ])
+
+  const agent = createAgent({ system: 'test', tools: [slow, fast], provider })
+  const events = await collect(runAgent(agent, { prompt: 'go' }))
+
+  // Ran concurrently: fast finished before slow even though it was requested second.
+  assert.deepEqual(order, ['fast', 'slow'])
+
+  // But results are emitted/fed back in the model's original order.
+  const results = events.filter((e) => e.type === 'tool_result')
+  assert.deepEqual(
+    results.map((e) => (e.type === 'tool_result' ? e.content : '')),
+    ['slow-done', 'fast-done']
+  )
+})
+
 test('invalid tool input is reported as an error result', async () => {
   const provider = new MockProvider([
     {

@@ -21,6 +21,9 @@ export type { LLMProvider, ProviderStreamEvent } from './provider/types.js'
 export { PRICING, costUSD } from './cost.js'
 export type { ModelPricing } from './cost.js'
 
+export { connectMcp, wrapMcpTools, renderMcpContent } from './mcp.js'
+export type { McpConnection, McpToolClient, McpTransportOptions } from './mcp.js'
+
 export type {
   ToolCall,
   ToolResult,

@@ -7,16 +7,17 @@ export interface ToolContext {
 }
 
 /**
- * A tool: a name, a description the model reads to decide when to call it,
- * a Zod schema for the input (which also generates the JSON Schema sent to
- * the API), and a handler that receives the parsed, typed input.
+ * A tool the model can call. `jsonSchema` is always sent to the API. `schema`
+ * is an optional Zod schema — when present, inputs are validated against it
+ * before the handler runs (this is what `defineTool` sets). Tools that only
+ * have a JSON Schema (e.g. wrapped MCP tools) omit it.
  */
-export interface Tool<S extends z.ZodType = z.ZodType> {
+export interface Tool {
   name: string
   description: string
-  schema: S
   jsonSchema: Record<string, unknown>
-  handler: (input: z.infer<S>, ctx: ToolContext) => string | Promise<string>
+  schema?: z.ZodType
+  handler: (input: unknown, ctx: ToolContext) => string | Promise<string>
 }
 
 /**
@@ -37,7 +38,7 @@ export function defineTool<S extends z.ZodType>(def: {
   description: string
   input: S
   handler: (input: z.infer<S>, ctx: ToolContext) => string | Promise<string>
-}): Tool<S> {
+}): Tool {
   // Zod v4 ships a native JSON Schema converter.
   const jsonSchema = z.toJSONSchema(def.input) as Record<string, unknown>
   // Anthropic's input_schema doesn't want the JSON Schema meta key.
@@ -45,8 +46,8 @@ export function defineTool<S extends z.ZodType>(def: {
   return {
     name: def.name,
     description: def.description,
-    schema: def.input,
     jsonSchema,
-    handler: def.handler
+    schema: def.input,
+    handler: def.handler as Tool['handler']
   }
 }

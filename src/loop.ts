@@ -99,16 +99,21 @@ export async function* runAgent(agent: Agent, input: RunInput): AsyncGenerator<A
       return
     }
 
-    // --- Execute each requested tool, then loop with the results ---
-    const results: ToolResult[] = []
+    // --- Execute the requested tools concurrently, preserving order ---
+    // A turn can contain several tool_use blocks; run them in parallel but
+    // emit events (and feed results back) in the model's original order.
     for (const call of result.toolCalls) {
       yield { type: 'tool_call', id: call.id, name: call.name, input: call.input }
-      const res = await executeTool(agent, toolsByName, call, input.signal)
-      results.push(res)
+    }
+    const results: ToolResult[] = await Promise.all(
+      result.toolCalls.map((call) => executeTool(agent, toolsByName, call, input.signal))
+    )
+    for (let i = 0; i < results.length; i++) {
+      const res = results[i]
       yield {
         type: 'tool_result',
         id: res.id,
-        name: call.name,
+        name: result.toolCalls[i].name,
         content: res.content,
         isError: res.isError
       }
@@ -139,14 +144,19 @@ async function executeTool(
   const tool = toolsByName.get(call.name)
   if (!tool) return err(`Unknown tool: ${call.name}`)
 
-  // Validate input at the boundary using the tool's Zod schema.
-  const parsed = tool.schema.safeParse(call.input)
-  if (!parsed.success) {
-    return err(`Invalid input for ${call.name}: ${parsed.error.message}`)
+  // Validate input at the boundary when the tool carries a Zod schema.
+  // Tools with only a JSON Schema (e.g. wrapped MCP tools) pass through.
+  let input: unknown = call.input
+  if (tool.schema) {
+    const parsed = tool.schema.safeParse(call.input)
+    if (!parsed.success) {
+      return err(`Invalid input for ${call.name}: ${parsed.error.message}`)
+    }
+    input = parsed.data
   }
 
   try {
-    const content = await tool.handler(parsed.data, { signal })
+    const content = await tool.handler(input, { signal })
     return { id: call.id, content, isError: false }
   } catch (e) {
     return err(e instanceof Error ? e.message : String(e))

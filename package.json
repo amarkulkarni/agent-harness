@@ -21,8 +21,9 @@
     "build": "tsc",
     "dev": "tsc -w",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/loop.test.ts",
-    "example:fs": "node --import tsx examples/filesystem-agent.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "example:fs": "node --import tsx examples/filesystem-agent.ts",
+    "example:mcp": "node --import tsx examples/mcp-agent.ts"
   },
   "keywords": [
     "agent",
@@ -35,6 +36,7 @@
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.109.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
