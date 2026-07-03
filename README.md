@@ -1,5 +1,7 @@
 # agent-harness
 
+[![CI](https://github.com/amarkulkarni/agent-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/amarkulkarni/agent-harness/actions/workflows/ci.yml)
+
 A tiny, provider-agnostic harness for building tool-using agents. **An agent is
 just a system prompt + a set of typed tools** — the tool-use loop, streaming,
 token/cost tracking, and guardrails come for free. Drop it into any project;
