@@ -54,7 +54,15 @@ export interface TurnResult {
   text: string
   toolCalls: ToolCall[]
   stopReason: StopReason
-  usage: { inputTokens: number; outputTokens: number }
+  usage: {
+    /** Uncached input tokens (billed at full rate). */
+    inputTokens: number
+    outputTokens: number
+    /** Tokens served from the prompt cache (billed at ~0.1x). */
+    cacheReadTokens?: number
+    /** Tokens written to the prompt cache (billed at ~1.25x). */
+    cacheCreationTokens?: number
+  }
   /** Provider-native content, replayed verbatim on the next turn. */
   native?: unknown
 }

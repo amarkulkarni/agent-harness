@@ -79,6 +79,33 @@ test('runs a multi-turn tool loop and finishes on end_turn', async () => {
   }
 })
 
+test('accumulates cache tokens and prices reads at 0.1x, writes at 1.25x', async () => {
+  const provider = new MockProvider([
+    {
+      text: 'done',
+      toolCalls: [],
+      stopReason: 'end_turn',
+      usage: {
+        inputTokens: 1000,
+        outputTokens: 100,
+        cacheReadTokens: 4000,
+        cacheCreationTokens: 2000
+      }
+    }
+  ])
+  const agent = createAgent({ system: 'test', model: 'claude-opus-4-8', provider })
+  const events = await collect(runAgent(agent, { prompt: 'go' }))
+  const done = events.at(-1)
+  assert.equal(done?.type, 'done')
+  if (done?.type === 'done') {
+    assert.equal(done.usage.cacheReadTokens, 4000)
+    assert.equal(done.usage.cacheCreationTokens, 2000)
+    // input: 1000*1 + 4000*0.1 + 2000*1.25 = 3900 @ $5/M; output: 100 @ $25/M
+    const expected = (3900 * 5 + 100 * 25) / 1_000_000
+    assert.ok(Math.abs(done.usage.costUSD - expected) < 1e-12)
+  }
+})
+
 test('stops at the maxTurns guardrail', async () => {
   // Always asks for a tool → would loop forever without the guardrail.
   const looping: TurnResult = {

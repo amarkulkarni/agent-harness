@@ -33,13 +33,17 @@ export async function* runAgent(agent: Agent, input: RunInput): AsyncGenerator<A
   const messages: ConvMessage[] = [{ role: 'user', text: input.prompt }]
   let inputTokens = 0
   let outputTokens = 0
+  let cacheReadTokens = 0
+  let cacheCreationTokens = 0
   let turns = 0
   let finalText = ''
 
   const totals = (): UsageTotals => ({
     inputTokens,
     outputTokens,
-    costUSD: costUSD(agent.model, inputTokens, outputTokens)
+    cacheReadTokens,
+    cacheCreationTokens,
+    costUSD: costUSD(agent.model, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens)
   })
 
   while (true) {
@@ -83,6 +87,8 @@ export async function* runAgent(agent: Agent, input: RunInput): AsyncGenerator<A
 
     inputTokens += result.usage.inputTokens
     outputTokens += result.usage.outputTokens
+    cacheReadTokens += result.usage.cacheReadTokens ?? 0
+    cacheCreationTokens += result.usage.cacheCreationTokens ?? 0
     if (result.text) finalText = result.text
     yield { type: 'usage', turn: turns, ...totals() }
 

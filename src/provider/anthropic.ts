@@ -2,17 +2,25 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { ConvMessage, StopReason, ToolCall, TurnRequest, TurnResult } from '../types.js'
 import type { LLMProvider, ProviderStreamEvent } from './types.js'
 
+const CACHE: Anthropic.CacheControlEphemeral = { type: 'ephemeral' }
+
 /**
  * Anthropic Messages API provider. Streams text deltas and returns a
  * normalized {@link TurnResult}. The SDK client is created lazily so importing
  * the harness without an API key never throws.
+ *
+ * Prompt caching is on by default: a breakpoint on the static prefix
+ * (tools + system) and one on the latest message let each turn re-read the
+ * prior prompt at ~0.1x instead of full price. Disable with `{ cache: false }`.
  */
 export class AnthropicProvider implements LLMProvider {
   private client: Anthropic | undefined
   private readonly apiKey: string | undefined
+  private readonly cache: boolean
 
-  constructor(opts: { apiKey?: string } = {}) {
+  constructor(opts: { apiKey?: string; cache?: boolean } = {}) {
     this.apiKey = opts.apiKey
+    this.cache = opts.cache ?? true
   }
 
   private getClient(): Anthropic {
@@ -30,18 +38,34 @@ export class AnthropicProvider implements LLMProvider {
   async *streamTurn(req: TurnRequest): AsyncIterable<ProviderStreamEvent> {
     const client = this.getClient()
 
-    // Build request params. `thinking` is passed through when set; kept out of
-    // the base object so the harness works across SDK/model versions when unset.
+    const tools: Anthropic.ToolUnion[] = req.tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      input_schema: t.inputSchema as Anthropic.Tool.InputSchema
+    }))
+
+    const messages = req.messages.map(toApiMessage)
+
+    // System as a text block so it can carry a cache breakpoint. Render order is
+    // tools → system → messages, so a breakpoint on system caches tools+system.
+    let system: string | Anthropic.TextBlockParam[] = req.system
+    if (this.cache) {
+      if (req.system) {
+        system = [{ type: 'text', text: req.system, cache_control: CACHE }]
+      } else if (tools.length > 0) {
+        // No system prompt to hang the breakpoint on — cache the tools instead.
+        tools[tools.length - 1] = { ...tools[tools.length - 1], cache_control: CACHE }
+      }
+      // And cache the conversation-so-far by marking the last message.
+      markLastMessageForCache(messages)
+    }
+
     const params: Record<string, unknown> = {
       model: req.model,
       max_tokens: req.maxTokens,
-      system: req.system,
-      messages: req.messages.map(toApiMessage),
-      tools: req.tools.map((t) => ({
-        name: t.name,
-        description: t.description,
-        input_schema: t.inputSchema
-      }))
+      system,
+      messages,
+      tools
     }
     if (req.thinking) params.thinking = req.thinking
 
@@ -57,6 +81,20 @@ export class AnthropicProvider implements LLMProvider {
 
     const final = await stream.finalMessage()
     yield { type: 'done', result: toTurnResult(final) }
+  }
+}
+
+/** Put a cache breakpoint on the last content block of the last message. */
+function markLastMessageForCache(messages: Anthropic.MessageParam[]): void {
+  const last = messages[messages.length - 1]
+  if (!last) return
+  if (typeof last.content === 'string') {
+    last.content = [{ type: 'text', text: last.content, cache_control: CACHE }]
+    return
+  }
+  const block = last.content[last.content.length - 1]
+  if (block) {
+    ;(block as { cache_control?: Anthropic.CacheControlEphemeral }).cache_control = CACHE
   }
 }
 
@@ -76,7 +114,9 @@ function toTurnResult(msg: Anthropic.Message): TurnResult {
     stopReason: mapStopReason(msg.stop_reason),
     usage: {
       inputTokens: msg.usage?.input_tokens ?? 0,
-      outputTokens: msg.usage?.output_tokens ?? 0
+      outputTokens: msg.usage?.output_tokens ?? 0,
+      cacheReadTokens: msg.usage?.cache_read_input_tokens ?? 0,
+      cacheCreationTokens: msg.usage?.cache_creation_input_tokens ?? 0
     },
     // Preserve the raw content array so the next turn replays it verbatim
     // (keeps thinking blocks + signatures intact).

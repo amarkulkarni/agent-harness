@@ -17,9 +17,31 @@ export const PRICING: Record<string, ModelPricing> = {
   'claude-haiku-4-5': { inputPerMTok: 1, outputPerMTok: 5 }
 }
 
-/** Estimated USD cost for a token count on a given model. */
-export function costUSD(model: string, inputTokens: number, outputTokens: number): number {
+/** Cache-read tokens bill at ~0.1x the input rate. */
+const CACHE_READ_MULTIPLIER = 0.1
+/** Cache-write tokens bill at ~1.25x the input rate (5-minute TTL). */
+const CACHE_WRITE_MULTIPLIER = 1.25
+
+/**
+ * Estimated USD cost for a token count on a given model.
+ *
+ * `inputTokens` is the *uncached* remainder; cache-read and cache-write tokens
+ * are separate fields that bill at reduced / premium rates respectively.
+ */
+export function costUSD(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  cacheReadTokens = 0,
+  cacheCreationTokens = 0
+): number {
   const p = PRICING[model]
   if (!p) return 0
-  return (inputTokens * p.inputPerMTok + outputTokens * p.outputPerMTok) / 1_000_000
+  const inputCost =
+    (inputTokens +
+      cacheReadTokens * CACHE_READ_MULTIPLIER +
+      cacheCreationTokens * CACHE_WRITE_MULTIPLIER) *
+    p.inputPerMTok
+  const outputCost = outputTokens * p.outputPerMTok
+  return (inputCost + outputCost) / 1_000_000
 }

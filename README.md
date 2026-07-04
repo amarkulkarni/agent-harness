@@ -53,6 +53,8 @@ set. This library extracts just the reusable core:
   and its tools become agent tools automatically — no per-tool wiring.
 - **Parallel tools.** When the model requests several tools in one turn, they
   run concurrently; results are fed back in the model's original order.
+- **Prompt caching on by default.** The Anthropic provider caches the static
+  prefix + conversation, so multi-turn runs re-read the prompt at ~0.1×.
 
 ## Install
 
@@ -161,11 +163,21 @@ to avoid tool-name collisions. MCP tools carry their own JSON Schema, so they
 slot in alongside `defineTool` tools transparently. See
 [`examples/mcp-agent.ts`](examples/mcp-agent.ts) (`npm run example:mcp`).
 
-## Cost tracking
+## Cost tracking & prompt caching
 
 Per-model pricing lives in [`src/cost.ts`](src/cost.ts) (USD per 1M tokens).
-Every `usage`/`done` event carries a running `costUSD`. Unknown models report
-`0` — add an entry to `PRICING` to get dollar figures.
+Every `usage`/`done` event carries running totals: `inputTokens`,
+`outputTokens`, `cacheReadTokens`, `cacheCreationTokens`, and a `costUSD` that
+prices cache reads at ~0.1× and writes at ~1.25×. Unknown models report `0` —
+add an entry to `PRICING` for dollar figures.
+
+**Prompt caching is on by default** in `AnthropicProvider`. It sets cache
+breakpoints on the static prefix (tools + system) and on the latest message, so
+each turn re-reads the prior prompt from cache instead of paying full price —
+a large saving on multi-turn or context-heavy runs. It engages automatically
+once the cached prefix exceeds the model's minimum (e.g. ~4K tokens on Opus);
+smaller prompts simply aren't cached. Disable with
+`new AnthropicProvider({ cache: false })`.
 
 ## Extending: a custom provider
 
@@ -200,7 +212,6 @@ turns and no network. See [`test/loop.test.ts`](test/loop.test.ts).
 ## Roadmap
 
 - **npm publish** — so it installs by name into other projects.
-- **Prompt caching** — `cache_control` on system + tools for cheaper multi-turn runs.
 - **Structured output helper** — `runAgentForObject` returning a validated typed object.
 - **Session/transcript persistence** and resumable runs.
 - **Additional providers** (OpenAI, local models) behind the existing seam.

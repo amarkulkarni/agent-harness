@@ -2,8 +2,13 @@ import type { StopReason } from './types.js'
 
 /** Running totals reported on `usage` and `done` events. */
 export interface UsageTotals {
+  /** Uncached input tokens (full rate). */
   inputTokens: number
   outputTokens: number
+  /** Tokens served from the prompt cache (~0.1x). */
+  cacheReadTokens: number
+  /** Tokens written to the prompt cache (~1.25x). */
+  cacheCreationTokens: number
   costUSD: number
 }
 

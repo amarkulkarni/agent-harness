@@ -21,13 +21,16 @@ export async function printRun(agent: Agent, prompt: string): Promise<void> {
           `\x1b[90m  ${ev.isError ? '✗' : '✓'} ${truncate(ev.content, 200)}\x1b[0m\n`
         )
         break
-      case 'done':
+      case 'done': {
+        const cached =
+          ev.usage.cacheReadTokens > 0 ? ` (${ev.usage.cacheReadTokens} cached)` : ''
         process.stdout.write(
           `\n\x1b[32m✓ ${ev.reason}\x1b[0m — ${ev.turns} turn(s), ` +
-            `${ev.usage.inputTokens}in/${ev.usage.outputTokens}out tokens, ` +
+            `${ev.usage.inputTokens}in${cached}/${ev.usage.outputTokens}out tokens, ` +
             `$${ev.usage.costUSD.toFixed(4)}\n`
         )
         break
+      }
       case 'error':
         process.stderr.write(`\n\x1b[31m✗ error: ${ev.message}\x1b[0m\n`)
         process.exitCode = 1
