@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
 import type { Agent } from './agent.js'

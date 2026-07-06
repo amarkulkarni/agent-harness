@@ -1,5 +1,5 @@
 {
-  "name": "agent-harness",
+  "name": "@amarkulkarni/agent-harness",
   "version": "0.1.0",
   "description": "A tiny, provider-agnostic harness for building tool-using agents. An agent is just a system prompt + typed tools; the loop, streaming, cost tracking, and guardrails come for free.",
   "type": "module",
@@ -17,13 +17,28 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amarkulkarni/agent-harness.git"
+  },
+  "homepage": "https://github.com/amarkulkarni/agent-harness#readme",
+  "bugs": {
+    "url": "https://github.com/amarkulkarni/agent-harness/issues"
+  },
+  "publishConfig": {
+    "access": "restricted"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc -w",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
     "example:fs": "node --import tsx examples/filesystem-agent.ts",
-    "example:mcp": "node --import tsx examples/mcp-agent.ts"
+    "example:mcp": "node --import tsx examples/mcp-agent.ts",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "agent",

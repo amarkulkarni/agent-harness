@@ -60,14 +60,22 @@ set. This library extracts just the reusable core:
 
 ## Install
 
+Into another project (published as a private scoped package):
+
 ```bash
-npm install
-cp .env.example .env   # add your ANTHROPIC_API_KEY
-npm run build
+npm install @amarkulkarni/agent-harness
+```
+
+Or work on the harness itself:
+
+```bash
+git clone https://github.com/amarkulkarni/agent-harness.git
+cd agent-harness && npm install && npm run build
 ```
 
 Requires Node 18+ and an `ANTHROPIC_API_KEY` (only when using the default
-Anthropic provider).
+Anthropic provider). Code examples below import from `agent-harness` for
+brevity — use the full `@amarkulkarni/agent-harness` specifier in real imports.
 
 ## Concepts
 
