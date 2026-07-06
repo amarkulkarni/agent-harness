@@ -55,6 +55,8 @@ set. This library extracts just the reusable core:
   run concurrently; results are fed back in the model's original order.
 - **Prompt caching on by default.** The Anthropic provider caches the static
   prefix + conversation, so multi-turn runs re-read the prompt at ~0.1×.
+- **Structured output.** `runAgentForObject(agent, prompt, zodSchema)` returns a
+  validated, typed object — extraction and classification, not just chat.
 
 ## Install
 
@@ -139,6 +141,29 @@ npm run example:fs -- --dir ./playground "create hello.txt with a greeting"
 It's proof the harness is reusable — the core has no idea what a "filesystem
 agent" is; it's just three tools and a prompt.
 
+## Structured output
+
+Get a validated, typed object back instead of free text — for extraction,
+classification, or any "return this shape" task:
+
+```ts
+import { runAgentForObject } from 'agent-harness'
+import { z } from 'zod'
+
+const { object } = await runAgentForObject(
+  agent,
+  { prompt: 'Extract the invoice fields from ./invoice.txt' },
+  z.object({ total: z.number(), dueDate: z.string(), lineItems: z.array(z.string()) })
+)
+object.total // number — validated
+```
+
+The agent may use its normal tools first (read files, call MCP servers…), then
+hands back the answer. Non-object schemas work too — `z.enum([...])` for
+classification is wrapped and unwrapped automatically. Under the hood it's a
+forced `submit_result` tool whose input schema *is* your Zod schema, so it's
+provider-agnostic and validated with the same machinery as every other tool.
+
 ## MCP: connectors as tools
 
 Connect to any [Model Context Protocol](https://modelcontextprotocol.io) server
@@ -212,6 +237,5 @@ turns and no network. See [`test/loop.test.ts`](test/loop.test.ts).
 ## Roadmap
 
 - **npm publish** — so it installs by name into other projects.
-- **Structured output helper** — `runAgentForObject` returning a validated typed object.
 - **Session/transcript persistence** and resumable runs.
 - **Additional providers** (OpenAI, local models) behind the existing seam.

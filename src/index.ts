@@ -13,6 +13,9 @@ export type { Agent, AgentConfig, Guardrails } from './agent.js'
 export { runAgent } from './loop.js'
 export type { RunInput } from './loop.js'
 
+export { runAgentForObject } from './object.js'
+export type { ObjectResult } from './object.js'
+
 export type { AgentEvent, UsageTotals } from './events.js'
 
 export { AnthropicProvider } from './provider/anthropic.js'
